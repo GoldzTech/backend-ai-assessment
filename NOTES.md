@@ -32,3 +32,8 @@ the app would run behind nginx as a reverse proxy with:
 - Rate limiting
 - Gzip compression
 - Static file caching
+
+## Note on Market Data
+Binance API is geo-restricted in US-based servers. 
+Switched to CoinGecko public API for deployment. 
+In production, would use a server in a non-restricted region or a paid data provider.
