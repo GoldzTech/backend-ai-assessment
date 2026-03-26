@@ -1,39 +1,43 @@
 # NOTES.md
 
 ## Market Data Source
-Chose Binance public REST API (no API key required):
-- `/api/v3/ticker/price` for current price
-- `/api/v3/klines` for candlestick data
+Chose CoinGecko public REST API (no API key required):
+- `/simple/price` for current BTC price
+- `/coins/bitcoin/ohlc` for candlestick data
 
-Simple, reliable, and well-documented. No authentication needed for public endpoints.
+Originally suggested Binance by the assessment, but Binance is geo-restricted 
+on US-based servers (Render runs on Ohio). Switched to CoinGecko and documented 
+the trade-off.
 
 ## Design Decisions
-- **Separation of concerns:** `lib/market.js` and `lib/ollama.js` are isolated modules, making them easy to test and replace independently.
-- **Config via environment:** All configurable values (model, URLs, timeout) live in `.env`, never hardcoded.
-- **Error handling:** Every external call (Binance, Ollama) returns `{ error }` on failure instead of throwing, so the server always responds gracefully.
-- **Market context in /api/ask:** The endpoint automatically fetches the current BTC price and injects it into the prompt, so Ollama answers with real data instead of generic responses.
+- **Separation of concerns:** `lib/market.js` and `lib/ollama.js` are isolated 
+  modules, making them easy to test and replace independently.
+- **Config via environment:** All configurable values (model, URLs, timeout) 
+  live in `.env`, never hardcoded.
+- **Error handling:** Every external call returns `{ error }` on failure instead 
+  of throwing, so the server always responds gracefully.
+- **Market context in /api/ask:** Automatically fetches current BTC price and 
+  injects it into the prompt for richer answers.
 
 ## Trade-offs
-- Ollama runs locally — in production this should be a hosted model (OpenAI, Together.ai, etc.) for reliability and latency.
-- No caching on market data — every request hits Binance. A simple in-memory cache with a 30s TTL would reduce latency significantly.
+- Ollama runs locally — in production would use OpenAI, Groq, or Together.ai.
+- CoinGecko free tier has rate limits (429). In production would add Redis cache 
+  with 30s TTL.
 - No authentication on endpoints — production would need API keys or JWT.
 
 ## How I'd extend this
-- **Streaming:** Use Ollama's `stream: true` and SSE to stream responses to the client token by token.
+- **Streaming:** Use SSE to stream Ollama responses token by token.
 - **Caching:** Redis or in-memory cache for price/klines with short TTL.
-- **More context in /api/ask:** Include klines summary (last 24h high/low/trend) in the prompt for richer answers.
-- **WebSocket endpoint:** Real-time price updates pushed to connected clients.
-- **Rate limiting:** Prevent abuse on `/api/ask` since LLM calls are expensive.
+- **Richer context in /api/ask:** Include 24h high/low/trend summary in prompt.
+- **WebSocket endpoint:** Real-time price updates pushed to clients.
+- **Rate limiting:** Protect `/api/ask` from abuse.
 
 ## Deployment
-Deployed on Render.com. In a production environment, 
-the app would run behind nginx as a reverse proxy with:
+Deployed on Render.com. In production would run behind nginx as reverse proxy with:
 - SSL termination
 - Rate limiting
 - Gzip compression
-- Static file caching
 
-## Note on Market Data
-Binance API is geo-restricted in US-based servers. 
-Switched to CoinGecko public API for deployment. 
-In production, would use a server in a non-restricted region or a paid data provider.
+## Known Issues
+- `/api/ask` returns error on cloud deployment — Ollama runs locally only.
+- CoinGecko free tier has rate limits. In production would cache responses.
